@@ -1,0 +1,12 @@
+# requirements.txt
+
+# API Framework and Server
+fastapi
+uvicorn[standard]
+
+# Numerical Computing
+numpy
+
+# Authentication & Security
+python-jose[cryptography]
+passlib[bcrypt]
