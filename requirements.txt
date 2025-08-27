@@ -3,6 +3,7 @@
 # API Framework and Server
 fastapi
 uvicorn[standard]
+python-multipart  
 
 # Numerical Computing
 numpy
@@ -10,3 +11,11 @@ numpy
 # Authentication & Security
 python-jose[cryptography]
 passlib[bcrypt]
+bcrypt>=4.0.0 
+
+# 
+
+# Testing
+pytest
+pytest-asyncio
+httpx

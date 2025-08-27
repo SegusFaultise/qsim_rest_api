@@ -1,0 +1,12 @@
+{
+  "free_user": {
+    "username": "free_user",
+    "hashed_password": "$2b$12$ICDJrZjd0rhRPvwcRcG3Nu5etYaiAliXcNyzP1jzptqQfPwwz.JyS",
+    "max_qubits": 8
+  },
+  "pro_user": {
+    "username": "pro_user",
+    "hashed_password": "$2b$12$NgRa8k15e.c9e7qdPmpm2ezbn6VaC0zYe.J5XnjUAtfZKLHv0yYWu",
+    "max_qubits": 18
+  }
+}
