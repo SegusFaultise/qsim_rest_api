@@ -116,7 +116,120 @@ async def test_simulation_workflow(test_client):
     assert result_response.status_code == 200
     result_data = result_response.json()
     assert result_data["status"] == "completed"
-    assert "probabilities" in result_data["results"]
+
+    # FIXED: The key was changed from "probabilities" to "states" in the simulator
+    assert "states" in result_data["results"]
     # For an H gate on |0>, the result should be a 50/50 superposition
-    assert "0" in result_data["results"]["probabilities"]
-    assert "1" in result_data["results"]["probabilities"]
+    assert "0" in result_data["results"]["states"]
+    assert "1" in result_data["results"]["states"]
+
+async def test_update_circuit(test_client):
+    """Tests updating an existing circuit's name and gates."""
+    # 1. Login as pro_user and get a token
+    login_response = await test_client.post(
+        "/auth/login", data={"username": "pro_user", "password": "password456"}
+    )
+    token = login_response.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # 2. Create an initial circuit
+    initial_data = {"name": "Initial Circuit", "qubits": 1, "gates": [{"gate": "H", "target": 0}]}
+    create_response = await test_client.post("/api/v1/circuits/", json=initial_data, headers=headers)
+    assert create_response.status_code == 201
+    circuit_id = create_response.json()["id"]
+
+    # 3. Define the updated circuit data
+    updated_data = {"name": "Updated Circuit", "qubits": 1, "gates": [{"gate": "X", "target": 0}]}
+    update_response = await test_client.put(f"/api/v1/circuits/{circuit_id}", json=updated_data, headers=headers)
+
+    # 4. Assert the update was successful
+    assert update_response.status_code == 200
+    updated_circuit = update_response.json()
+    assert updated_circuit["name"] == "Updated Circuit"
+    assert updated_circuit["gates"][0]["gate"] == "X"
+
+    # 5. Verify the change by fetching the circuit again
+    get_response = await test_client.get(f"/api/v1/circuits/{circuit_id}", headers=headers)
+    assert get_response.status_code == 200
+    assert get_response.json()["name"] == "Updated Circuit"
+
+async def test_delete_circuit(test_client):
+    """Tests that a circuit can be successfully deleted."""
+    # 1. Login and get token
+    login_response = await test_client.post(
+        "/auth/login", data={"username": "pro_user", "password": "password456"}
+    )
+    token = login_response.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # 2. Create a circuit to be deleted
+    circuit_data = {"name": "To Be Deleted", "qubits": 1, "gates": []}
+    create_response = await test_client.post("/api/v1/circuits/", json=circuit_data, headers=headers)
+    circuit_id = create_response.json()["id"]
+
+    # 3. Delete the circuit
+    delete_response = await test_client.delete(f"/api/v1/circuits/{circuit_id}", headers=headers)
+    assert delete_response.status_code == 204
+
+    # 4. Verify that the circuit is gone
+    get_response = await test_client.get(f"/api/v1/circuits/{circuit_id}", headers=headers)
+    assert get_response.status_code == 404
+
+async def test_swap_gate_simulation(test_client):
+    """Tests a circuit with a SWAP gate to ensure it produces the correct final state."""
+    # 1. Login and get token
+    login_response = await test_client.post(
+        "/auth/login", data={"username": "free_user", "password": "password123"}
+    )
+    token = login_response.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # 2. Create a circuit that prepares state |01> and then swaps it to |10>
+    circuit_data = {
+        "name": "SWAP Test",
+        "qubits": 2,
+        "gates": [
+            {"gate": "X", "target": 1},  # Creates state |01>
+            {"gate": "SWAP", "control": 0, "target": 1} # Swaps to |10>
+        ]
+    }
+    create_response = await test_client.post("/api/v1/circuits/", json=circuit_data, headers=headers)
+    circuit_id = create_response.json()["id"]
+
+    # 3. Start simulation
+    simulate_response = await test_client.post(f"/api/v1/circuits/{circuit_id}/simulate", headers=headers)
+    job_info = simulate_response.json()
+
+    # 4. Get result and verify the final state
+    result_response = await test_client.get(job_info["status_url"], headers=headers)
+    result_data = result_response.json()
+
+    assert result_data["status"] == "completed"
+
+    # FIXED: The key was changed from "probabilities" to "states"
+    final_states = result_data["results"]["states"]
+
+    # The final state should be |10> with ~100% probability
+    assert "10" in final_states
+    assert final_states["10"] == pytest.approx(1.0)
+    assert len(final_states) == 1
+
+async def test_update_circuit_unauthorized_access(test_client):
+    """Tests that a user cannot update a circuit belonging to another user."""
+    # 1. User A (pro_user) creates a circuit
+    login_a_response = await test_client.post("/auth/login", data={"username": "pro_user", "password": "password456"})
+    token_a = login_a_response.json()["access_token"]
+    headers_a = {"Authorization": f"Bearer {token_a}"}
+    circuit_data = {"name": "User A Circuit", "qubits": 1, "gates": []}
+    circuit_id = (await test_client.post("/api/v1/circuits/", json=circuit_data, headers=headers_a)).json()["id"]
+
+    # 2. User B (free_user) tries to update User A's circuit
+    login_b_response = await test_client.post("/auth/login", data={"username": "free_user", "password": "password123"})
+    token_b = login_b_response.json()["access_token"]
+    headers_b = {"Authorization": f"Bearer {token_b}"}
+    updated_data = {"name": "Malicious Update", "qubits": 1, "gates": []}
+
+    update_response = await test_client.put(f"/api/v1/circuits/{circuit_id}", json=updated_data, headers=headers_b)
+
+    # 3. Assert the request is denied
+    assert update_response.status_code == 404
