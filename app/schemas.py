@@ -1,7 +1,7 @@
 # app/schemas.py
 
 from pydantic import BaseModel
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 
 # --- Token Schemas ---
 class Token(BaseModel):
@@ -22,8 +22,10 @@ class UserInDB(User):
 # --- Circuit Schemas ---
 class Gate(BaseModel):
     gate: str
-    target: int
-    control: int | None = None
+    time: int
+    targets: List[int]
+    controls: List[int] = []
+    parameters: Optional[Dict[str, Any]] = None
 
 class CircuitBase(BaseModel):
     name: str
