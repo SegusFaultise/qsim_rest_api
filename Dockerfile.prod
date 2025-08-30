@@ -10,11 +10,15 @@ WORKDIR /code
 COPY ./requirements.txt /code/requirements.txt
 
 # Install any needed packages specified in requirements.txt
-RUN pip install --no-cache-dir --upgrade -r /code/requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt && \
+    pip install --no-cache-dir gunicorn
 
 # Copy the application code into the container
 COPY ./app /code/app
 
+EXPOSE 80
+
 # Command to run the application using Uvicorn
 # We bind to 0.0.0.0 to make it accessible from outside the container
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "80"]
+CMD ["gunicorn", "app.main:app", "--workers", "4", "--worker-class", "uvicorn.workers.UvicornWorker", "--bind", "0.0.0.0:80"]
+
