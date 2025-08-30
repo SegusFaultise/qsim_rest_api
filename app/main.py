@@ -16,6 +16,7 @@ app = FastAPI(
 origins = [
     "http://localhost:5173",  # React development server
     "http://localhost:3000",  # Another common port for React dev servers
+    "https://segusfaultise.github.io"
 ]
 
 app.add_middleware(
