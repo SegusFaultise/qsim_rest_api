@@ -2,7 +2,7 @@
   "free_user": {
     "username": "free_user",
     "hashed_password": "$2b$12$ICDJrZjd0rhRPvwcRcG3Nu5etYaiAliXcNyzP1jzptqQfPwwz.JyS",
-    "max_qubits": 8
+    "max_qubits": 30
   },
   "pro_user": {
     "username": "pro_user",

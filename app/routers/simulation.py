@@ -1,5 +1,3 @@
-# app/routers/simulation.py
-
 import uuid
 from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, status, Request, BackgroundTasks
@@ -15,10 +13,16 @@ router = APIRouter(
 )
 
 def run_simulation_background(job_id: str, circuit: Circuit):
-    """Helper function to run the simulation in the background."""
+    """
+    <summary>
+    A helper function designed to run the CPU-intensive circuit simulation in a background task.
+    It updates the job status in the fake database to 'completed' on success or 'failed' on error.
+    </summary>
+    <param name="job_id" type="str">The unique ID for the simulation job.</param>
+    <param name="circuit" type="Circuit">The circuit object to be simulated.</param>
+    """
     try:
         simulation_output = run_simulation(circuit)
-        # Update status and add results, keeping owner info
         job_data = FAKE_SIMULATION_RESULTS_DB.get(job_id, {})
         job_data.update({"status": "completed", "results": simulation_output})
         FAKE_SIMULATION_RESULTS_DB[job_id] = job_data
@@ -34,20 +38,30 @@ async def start_new_simulation(
     current_user: Annotated[User, Depends(get_current_user)],
     request: Request
 ):
+    """
+    <summary>
+    Initiates a new quantum circuit simulation as a background task.
+    It immediately returns a job ID and a status URL, allowing the client to poll for results.
+    </summary>
+    <param name="circuit_id" type="str">The ID of the circuit to simulate.</param>
+    <param name="background_tasks" type="BackgroundTasks">FastAPI dependency for running tasks after the response is sent.</param>
+    <param name="current_user" type="User">The authenticated user object, injected by FastAPI.</param>
+    <param name="request" type="Request">The incoming request object, used to build the status URL.</param>
+    <returns type="SimulationJob">An object containing the job_id and the URL to poll for the result.</returns>
+    <exception cref="HTTPException">Raises 404 Not Found if the circuit does not exist or is not owned by the user.</exception>
+    """
     circuit = FAKE_CIRCUITS_DB.get(circuit_id)
     if not circuit or circuit.owner != current_user.username:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Circuit not found")
 
     job_id = f"job_{uuid.uuid4().hex[:12]}"
 
-    # Store initial job status with ownership information
     FAKE_SIMULATION_RESULTS_DB[job_id] = {
         "status": "pending",
         "results": None,
         "owner": current_user.username
     }
 
-    # Add the long-running simulation to the background
     background_tasks.add_task(run_simulation_background, job_id, circuit)
 
     status_url = request.url_for('get_simulation_result', job_id=job_id)
@@ -58,9 +72,17 @@ async def get_simulation_result(
     job_id: str,
     current_user: Annotated[User, Depends(get_current_user)]
 ):
+    """
+    <summary>
+    Retrieves the status and results of a previously started simulation job.
+    </summary>
+    <param name="job_id" type="str">The unique ID of the simulation job to check.</param>
+    <param name="current_user" type="User">The authenticated user object, injected by FastAPI.</param>
+    <returns type="SimulationResult">An object containing the job's status and the simulation results if completed.</returns>
+    <exception cref="HTTPException">Raises 404 Not Found if the job does not exist or is not owned by the user.</exception>
+    """
     job = FAKE_SIMULATION_RESULTS_DB.get(job_id)
 
-    # Securely check if the job exists and belongs to the current user
     if not job or job.get("owner") != current_user.username:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Job not found")
 
